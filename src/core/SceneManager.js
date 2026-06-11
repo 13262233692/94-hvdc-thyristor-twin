@@ -7,6 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { GLTFInstancedLoader } from './GLTFInstancedLoader.js'
 import { updateThyristorPulseState, updateThyristorsFromSharedBuffer, createThyristorMaterial } from './ThyristorMaterial.js'
 import { SCENE_CONFIG, THYRISTOR_MATERIAL_CONFIG, IEC61850_CONFIG } from './constants.js'
+import { HEAT_CONFIG, WARNING_LEVEL } from './HeatConstants.js'
 
 export class SceneManager {
   constructor(container, options = {}) {
@@ -55,6 +56,8 @@ export class SceneManager {
 
     this.pulseStateBuffer = null
     this.zeroCopyMode = false
+    this.heatSimManager = null
+    this.thermalVisualizationEnabled = false
 
     this.init()
   }
@@ -455,7 +458,20 @@ export class SceneManager {
     this.zeroCopyMode = !!buffer
   }
 
+  setHeatSimManager(manager) {
+    this.heatSimManager = manager
+  }
+
+  setThermalVisualization(enabled) {
+    this.thermalVisualizationEnabled = enabled
+    if (this.heatSimManager) {
+      this.heatSimManager.enableThermalVisualization(enabled)
+    }
+  }
+
   updateThyristors(delta, elapsed) {
+    const applyThermal = this.thermalVisualizationEnabled && this.heatSimManager
+
     if (this.zeroCopyMode && this.pulseStateBuffer) {
       for (let i = 0; i < this.thyristorMeshes.length; i++) {
         const meshData = this.thyristorMeshes[i]
@@ -463,6 +479,10 @@ export class SceneManager {
           meshData.material.uniforms.uTime.value = elapsed
         }
         updateThyristorsFromSharedBuffer(meshData, this.pulseStateBuffer, delta, i)
+
+        if (applyThermal) {
+          this.heatSimManager.applyThermalVisualization(meshData)
+        }
       }
     } else {
       for (const meshData of this.thyristorMeshes) {
@@ -480,6 +500,10 @@ export class SceneManager {
         }
 
         updateThyristorPulseState(meshData, localEvents, delta)
+
+        if (applyThermal) {
+          this.heatSimManager.applyThermalVisualization(meshData)
+        }
       }
     }
   }

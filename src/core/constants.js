@@ -1,0 +1,41 @@
+export const THYRISTOR_STATE = {
+  OFF: 0,
+  ON: 1,
+  PULSE: 2
+}
+
+export const WORKER_MESSAGE_TYPE = {
+  INIT: 'init',
+  CONNECT: 'connect',
+  DISCONNECT: 'disconnect',
+  SV_DATA: 'sv_data',
+  PULSE_EVENT: 'pulse_event',
+  STATUS: 'status',
+  ERROR: 'error'
+}
+
+export const IEC61850_CONFIG = {
+  DEFAULT_WS_URL: 'ws://localhost:8080/sv',
+  SV_ID_LENGTH: 10,
+  THYRISTOR_COUNT: 2048,
+  SAMPLE_RATE: 4000,
+  RECONNECT_INTERVAL: 3000,
+  MAX_RECONNECT_ATTEMPTS: 10
+}
+
+export const THYRISTOR_MATERIAL_CONFIG = {
+  BASE_COLOR: 0x3d5a6b,
+  PULSE_COLOR: 0xff2020,
+  EMISSIVE_INTENSITY: 3.0,
+  DECAY_RATE: 0.92,
+  MIN_EMISSIVE: 0.0
+}
+
+export const SCENE_CONFIG = {
+  AMBIENT_LIGHT_INTENSITY: 0.4,
+  DIRECTIONAL_LIGHT_INTENSITY: 1.2,
+  BACKGROUND_COLOR: 0x0a0a12,
+  FOG_COLOR: 0x0a0a12,
+  FOG_NEAR: 50,
+  FOG_FAR: 300
+}

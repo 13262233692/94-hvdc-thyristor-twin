@@ -8,6 +8,7 @@
       :stats="renderStats"
       :modelStats="modelStats"
       :pulseStats="pulseStats"
+      :zero-copy-mode="zeroCopyMode"
       @connect="handleConnect"
       @disconnect="handleDisconnect"
       @start-simulation="handleStartSimulation"
@@ -36,6 +37,11 @@
       :events="recentPulseEvents"
       :max-events="50"
     />
+
+    <div v-if="zeroCopyMode" class="zero-copy-badge">
+      <span class="badge-icon">⚡</span>
+      SharedArrayBuffer 零拷贝模式
+    </div>
   </div>
 </template>
 
@@ -56,7 +62,16 @@ let svStreamManager = null
 const modelLoading = ref(false)
 const loadingProgress = ref(0)
 const svConnected = ref(false)
+const zeroCopyMode = ref(false)
 const recentPulseEvents = ref([])
+const eventsPool = []
+for (let i = 0; i < 512; i++) {
+  eventsPool.push({
+    thyristorId: 0, level: 0, meshIndex: 0, localIndex: 0,
+    isBurst: false, timestamp: 0, receivedAt: 0
+  })
+}
+let poolCursor = 0
 
 const renderStats = reactive({
   fps: 0,
@@ -136,23 +151,49 @@ const initSVStream = async () => {
 
   await svStreamManager.init()
 
+  zeroCopyMode.value = svStreamManager.zeroCopyMode
+
+  if (zeroCopyMode.value) {
+    const pulseBuffer = svStreamManager.getPulseStateBuffer()
+    if (pulseBuffer && sceneManager) {
+      sceneManager.setPulseStateBuffer(pulseBuffer)
+    }
+  }
+
   svStreamManager.on('status', (data) => {
     if (data.connected !== undefined) {
       svConnected.value = data.connected
     }
+    if (data.zeroCopy !== undefined) {
+      zeroCopyMode.value = data.zeroCopy
+    }
   })
 
   svStreamManager.on('pulse', (data) => {
-    sceneManager?.handlePulseEvents(data.events)
+    if (!zeroCopyMode.value) {
+      sceneManager?.handlePulseEvents(data.events)
+    }
     
     const now = performance.now()
-    const eventsWithMeta = data.events.map(e => ({
-      ...e,
-      receivedAt: now
-    }))
+    const count = Math.min(data.count, 20)
+    const displayEvents = []
+    
+    for (let i = 0; i < count; i++) {
+      if (poolCursor >= eventsPool.length) poolCursor = 0
+      const evt = eventsPool[poolCursor++]
+      const src = data.events[i]
+      evt.thyristorId = src.thyristorId
+      evt.level = src.level
+      evt.meshIndex = src.meshIndex
+      evt.localIndex = src.localIndex
+      evt.isBurst = src.isBurst
+      evt.timestamp = src.timestamp
+      evt.receivedAt = now
+      displayEvents.push(evt)
+    }
     
     recentPulseEvents.value = [
-      ...eventsWithMeta,
+      ...displayEvents,
       ...recentPulseEvents.value
     ].slice(0, 100)
 
@@ -272,5 +313,35 @@ onUnmounted(() => {
   font-size: 24px;
   font-weight: bold;
   color: #00c8ff;
+}
+
+.zero-copy-badge {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 200, 255, 0.15));
+  border: 1px solid rgba(0, 255, 136, 0.4);
+  border-radius: 20px;
+  color: #00ff88;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 255, 136, 0.15);
+  animation: badgeGlow 2s ease-in-out infinite;
+}
+
+.badge-icon {
+  font-size: 16px;
+}
+
+@keyframes badgeGlow {
+  0%, 100% { box-shadow: 0 4px 16px rgba(0, 255, 136, 0.15); }
+  50% { box-shadow: 0 4px 24px rgba(0, 255, 136, 0.35); }
 }
 </style>

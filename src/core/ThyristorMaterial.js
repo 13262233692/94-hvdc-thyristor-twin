@@ -161,5 +161,60 @@ export function updateThyristorPulseState(instancedMeshData, pulseEvents, deltaT
   pulseIntensity.needsUpdate = true
 }
 
+export function updateThyristorsFromSharedBuffer(meshData, pulseBuffer, deltaTime, meshIndex = 0) {
+  const { mesh, count } = meshData
+  const instanceColor = mesh.instanceColor
+  const pulseState = mesh.geometry.attributes.aPulseState
+  const pulseIntensity = mesh.geometry.attributes.aPulseIntensity
+  const decayRate = mesh.material.uniforms.uDecayRate.value
+  const decayFactor = Math.pow(decayRate, deltaTime * 60)
+
+  const sharedState = pulseBuffer.state
+  const sharedIntensity = pulseBuffer.intensity
+  const totalThyristors = pulseBuffer.thyristorCount
+
+  for (let i = 0; i < count; i++) {
+    let state = 0
+    let intensity = pulseIntensity.array[i]
+
+    if (intensity > 0.001) {
+      intensity *= decayFactor
+      if (intensity < 0.001) {
+        intensity = 0
+      }
+    }
+
+    const globalId = i
+    if (globalId < totalThyristors && sharedState[globalId] > 0) {
+      state = 1
+      intensity = sharedIntensity[globalId]
+      if (intensity < 0.001) {
+        intensity = 1.0
+        sharedIntensity[globalId] = 1.0
+      }
+    }
+
+    pulseState.array[i] = state
+    pulseIntensity.array[i] = intensity
+
+    if (state > 0.5) {
+      const t = intensity
+      instanceColor.array[i * 4] = 0.24 + t * 0.76
+      instanceColor.array[i * 4 + 1] = 0.35 - t * 0.3
+      instanceColor.array[i * 4 + 2] = 0.42 - t * 0.4
+      instanceColor.array[i * 4 + 3] = 1.0
+    } else {
+      instanceColor.array[i * 4] = 0.24
+      instanceColor.array[i * 4 + 1] = 0.35
+      instanceColor.array[i * 4 + 2] = 0.42
+      instanceColor.array[i * 4 + 3] = 1.0
+    }
+  }
+
+  instanceColor.needsUpdate = true
+  pulseState.needsUpdate = true
+  pulseIntensity.needsUpdate = true
+}
+
 export { vertexShader, fragmentShader }
 export default createThyristorMaterial

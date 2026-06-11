@@ -5,7 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { GLTFInstancedLoader } from './GLTFInstancedLoader.js'
-import { updateThyristorPulseState, createThyristorMaterial } from './ThyristorMaterial.js'
+import { updateThyristorPulseState, updateThyristorsFromSharedBuffer, createThyristorMaterial } from './ThyristorMaterial.js'
 import { SCENE_CONFIG, THYRISTOR_MATERIAL_CONFIG, IEC61850_CONFIG } from './constants.js'
 
 export class SceneManager {
@@ -52,6 +52,9 @@ export class SceneManager {
     this.bloomPass = null
     this.raycaster = new THREE.Raycaster()
     this.mouse = new THREE.Vector2()
+
+    this.pulseStateBuffer = null
+    this.zeroCopyMode = false
 
     this.init()
   }
@@ -447,22 +450,37 @@ export class SceneManager {
     this.updateStats()
   }
 
+  setPulseStateBuffer(buffer) {
+    this.pulseStateBuffer = buffer
+    this.zeroCopyMode = !!buffer
+  }
+
   updateThyristors(delta, elapsed) {
-    for (const meshData of this.thyristorMeshes) {
-      if (meshData.material.uniforms) {
-        meshData.material.uniforms.uTime.value = elapsed
-      }
-
-      const localEvents = new Set()
-      
-      for (const [key, event] of this.pendingEvents) {
-        if (event.meshIndex === this.thyristorMeshes.indexOf(meshData)) {
-          localEvents.add(event.localIndex)
-          this.pendingEvents.delete(key)
+    if (this.zeroCopyMode && this.pulseStateBuffer) {
+      for (let i = 0; i < this.thyristorMeshes.length; i++) {
+        const meshData = this.thyristorMeshes[i]
+        if (meshData.material.uniforms) {
+          meshData.material.uniforms.uTime.value = elapsed
         }
+        updateThyristorsFromSharedBuffer(meshData, this.pulseStateBuffer, delta, i)
       }
+    } else {
+      for (const meshData of this.thyristorMeshes) {
+        if (meshData.material.uniforms) {
+          meshData.material.uniforms.uTime.value = elapsed
+        }
 
-      updateThyristorPulseState(meshData, localEvents, delta)
+        const localEvents = new Set()
+        
+        for (const [key, event] of this.pendingEvents) {
+          if (event.meshIndex === this.thyristorMeshes.indexOf(meshData)) {
+            localEvents.add(event.localIndex)
+            this.pendingEvents.delete(key)
+          }
+        }
+
+        updateThyristorPulseState(meshData, localEvents, delta)
+      }
     }
   }
 

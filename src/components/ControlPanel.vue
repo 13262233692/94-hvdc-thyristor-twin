@@ -155,6 +155,21 @@
       </div>
     </div>
 
+    <div class="panel-section">
+      <div class="section-title">通信模式</div>
+      <div class="comm-status" :class="{ active: zeroCopyMode }">
+        <span class="comm-indicator"></span>
+        <div class="comm-info">
+          <div class="comm-title">
+            {{ zeroCopyMode ? 'SharedArrayBuffer 零拷贝' : '结构化克隆 (Structured Clone)' }}
+          </div>
+          <div class="comm-desc">
+            {{ zeroCopyMode ? '⚡ 极速零内存拷贝，Atomics 同步' : '⚠️ 4kHz 高频下可能导致 GC 卡顿' }}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="panel-section info-section">
       <div class="info-title">技术架构</div>
       <ul class="info-list">
@@ -178,6 +193,10 @@ const props = defineProps({
     default: false
   },
   loading: {
+    type: Boolean,
+    default: false
+  },
+  zeroCopyMode: {
     type: Boolean,
     default: false
   },
@@ -436,6 +455,56 @@ const formatNumber = (num) => {
 
 .pulse-value {
   color: #ff6b6b;
+}
+
+.comm-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 8px;
+}
+
+.comm-status.active {
+  background: rgba(0, 255, 136, 0.08);
+  border-color: rgba(0, 255, 136, 0.3);
+}
+
+.comm-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+}
+
+.comm-status.active .comm-indicator {
+  background: #00ff88;
+  animation: pulse-comm 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-comm {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(0, 255, 136, 0); }
+}
+
+.comm-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.comm-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e6ed;
+}
+
+.comm-desc {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
 }
 
 .info-section {
